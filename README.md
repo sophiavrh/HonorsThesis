@@ -4,4 +4,11 @@ My thesis director, Dr. Timothy Mousseau, is responsible for the development of 
 
 My data and code are publicly available:
 Chernobyl data = Sophia Thesis Cher ALL
+
+Chernobyl scipt = BoarScript_CHER
+
 Fukushima data = complete data w/ approximations
+
+Fukushima script = BoarScript_FUKU
+
+

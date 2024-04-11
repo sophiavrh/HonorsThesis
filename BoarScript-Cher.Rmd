@@ -1,0 +1,318 @@
+---
+title: "BoarScript-Cher.Rmd"
+output:
+  html_document: default
+  pdf_document: default
+date: "2024-03-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Library Calls
+```{r}
+library(devtools)
+library(readxl)
+library(unmarked)
+library(lme4)
+library(arm)
+library(MuMIn)
+library(AICcmodavg)
+library(ggplot2)
+```
+
+Loading and Formatting Data
+```{r}
+setwd("/Users/sophiavrh/Desktop/Mousseau Lab")
+
+CherBoar <- readxl::read_excel("Sophia Thesis- Cher ALL.xlsx", sheet = "final R")
+y1 <- as.matrix(CherBoar[,2:9])
+obscov1 <- list("camdays"=CherBoar[,10:17])
+sitecov1 <- as.data.frame(CherBoar[,18:29])
+
+#create unmarked frame
+UMFcher <- unmarked::unmarkedFramePCount(y=y1, siteCovs = sitecov1, obsCovs = obscov1)
+summary(UMFcher)
+```
+
+Null Model Generation:
+```{r}
+null <- unmarked::pcount(formula = ~camdays ~ 1, data = UMFcher, K = 858, mixture = "NB")
+MuMIn::AICc(null)
+#4281.568
+```
+
+Collinearity?:
+```{r}
+cor(CherBoar$Lat., CherBoar$Sr90) #0.4315
+cor(CherBoar$Lat., CherBoar$Cs137) #0.4597
+cor(CherBoar$Lat., CherBoar$Am241) #0.42696
+cor(CherBoar$Lat., CherBoar$Pu238) #0.43843
+cor(CherBoar$Lat., CherBoar$Pu239) #0.4401
+cor(CherBoar$Lat., CherBoar$Pu240) #0.4384
+
+cor(CherBoar$Long., CherBoar$Sr90) #0.2157
+cor(CherBoar$Long., CherBoar$Cs137) #0.1065
+cor(CherBoar$Long., CherBoar$Am241) #0.2092
+cor(CherBoar$Long., CherBoar$Pu238) #0.2159
+cor(CherBoar$Long., CherBoar$Pu239) #0.2125
+cor(CherBoar$Long., CherBoar$Pu240) #0.2159
+
+cor(CherBoar$NDVI , CherBoar$Sr90) #-0.3418
+cor(CherBoar$NDVI, CherBoar$Cs137) #-0.3322
+cor(CherBoar$NDVI, CherBoar$Am241) #-0.3224
+cor(CherBoar$NDVI, CherBoar$Pu238) #-0.3434
+cor(CherBoar$NDVI, CherBoar$Pu239) #-0.3556
+cor(CherBoar$NDVI, CherBoar$Pu240) #-0.3434
+
+cor(CherBoar$Distance_power_plant, CherBoar$Sr90) #-0.5833
+cor(CherBoar$Distance_power_plant, CherBoar$Cs137) #-0.4881
+cor(CherBoar$Distance_power_plant, CherBoar$Am241) #-0.5671
+cor(CherBoar$Distance_power_plant, CherBoar$Pu238) #-0.5862
+cor(CherBoar$Distance_power_plant, CherBoar$Pu239) #-0.5823
+cor(CherBoar$Distance_power_plant, CherBoar$Pu240) #-0.586
+
+cor(CherBoar$Distance_closest_water, CherBoar$Sr90) #-0.1142
+cor(CherBoar$Distance_closest_water, CherBoar$Cs137) #-0.0207
+cor(CherBoar$Distance_closest_water, CherBoar$Am241) #-0.1197
+cor(CherBoar$Distance_closest_water, CherBoar$Pu238) #-0.1188
+cor(CherBoar$Distance_closest_water, CherBoar$Pu239) #-0.1286
+cor(CherBoar$Distance_closest_water, CherBoar$Pu240) #-0.1188
+
+cor(CherBoar$Distance_to_Road, CherBoar$Sr90) #-0.1894
+cor(CherBoar$Distance_to_Road, CherBoar$Cs137) #-0.1735
+cor(CherBoar$Distance_to_Road, CherBoar$Am241) #-0.1766
+cor(CherBoar$Distance_to_Road, CherBoar$Pu238) #-0.1849
+cor(CherBoar$Distance_to_Road, CherBoar$Pu239) #-0.1830
+cor(CherBoar$Distance_to_Road, CherBoar$Pu240) #-0.18498
+
+#radiation only
+cor(CherBoar$Sr90, CherBoar$Cs137)
+cor(CherBoar$Sr90, CherBoar$Am241)
+cor(CherBoar$Sr90, CherBoar$Pu238)
+cor(CherBoar$Sr90, CherBoar$Pu239)
+cor(CherBoar$Sr90, CherBoar$Pu240)
+
+cor(CherBoar$Cs137, CherBoar$Am241)
+cor(CherBoar$Cs137, CherBoar$Pu238)
+cor(CherBoar$Cs137, CherBoar$Pu239)
+cor(CherBoar$Cs137, CherBoar$Pu240)
+
+cor(CherBoar$Am241, CherBoar$Pu238)
+cor(CherBoar$Am241, CherBoar$Pu239)
+cor(CherBoar$Am241, CherBoar$Pu240)
+
+cor(CherBoar$Pu238, CherBoar$Pu239)
+cor(CherBoar$Pu238, CherBoar$Pu240)
+cor(CherBoar$Pu238, CherBoar$Pu239) #0.9984546
+
+cor(CherBoar$Pu239, CherBoar$Pu240)
+
+CherBoarcovs <- CherBoar[,18:29]
+M <- cor(CherBoarcovs)
+library(corrplot)
+corrplot(M, method = "number")
+
+cor.test(CherBoarcovs$Sr90, CherBoarcovs$Am241)
+cor.test(CherBoarcovs$Sr90, CherBoarcovs$Pu238)
+cor.test(CherBoarcovs$Sr90, CherBoarcovs$Pu239)
+cor.test(CherBoarcovs$Sr90, CherBoarcovs$Pu240)
+cor.test(CherBoarcovs$Sr90, CherBoarcovs$Cs137)
+cor.test(CherBoarcovs$Cs137, CherBoarcovs$Am241)
+cor.test(CherBoarcovs$Cs137, CherBoarcovs$Pu238)
+cor.test(CherBoarcovs$Cs137, CherBoarcovs$Pu239)
+cor.test(CherBoarcovs$Cs137, CherBoarcovs$Pu240)
+cor.test(CherBoarcovs$Am241, CherBoarcovs$Pu238)
+cor.test(CherBoar$Am241, CherBoar$Pu239)
+cor.test(CherBoar$Am241, CherBoar$Pu240)
+
+cor.test(CherBoar$Pu238, CherBoar$Pu239)
+cor.test(CherBoar$Pu238, CherBoar$Pu240)
+cor.test(CherBoar$Pu238, CherBoar$Pu239)
+
+cor.test(CherBoar$Pu239, CherBoar$Pu240)
+
+cor.test(CherBoarcovs$Distance_power_plant, CherBoarcovs$Sr90)
+cor.test(CherBoarcovs$Distance_power_plant, CherBoarcovs$Cs137)
+cor.test(CherBoarcovs$Distance_power_plant, CherBoarcovs$Am241)
+cor.test(CherBoarcovs$Distance_power_plant, CherBoarcovs$Pu238)
+cor.test(CherBoarcovs$Distance_power_plant, CherBoarcovs$Pu239)
+cor.test(CherBoarcovs$Distance_power_plant, CherBoarcovs$Pu240)
+
+```
+
+Single Covariate Models:
+Will be testing a zero-inflated poisson (zip) and negative binomial (nb) distribution
+```{r}
+nb01 <- unmarked::pcount(~camdays ~ Lat., data = UMFcher, K = 858, mixture = "NB")
+nb02 <- unmarked::pcount(~camdays ~ Long., data = UMFcher, K = 858, mixture = "NB")
+nb03 <- unmarked::pcount(~camdays ~ Sr90, data = UMFcher, K = 858, mixture = "NB")
+nb04 <- unmarked::pcount(~camdays ~ Cs137, data = UMFcher, K = 858, mixture = "NB")
+nb05 <- unmarked::pcount(~camdays ~ Am241, data = UMFcher, K = 858, mixture = "NB")
+nb06 <- unmarked::pcount(~camdays ~ Pu238, data = UMFcher, K = 858, mixture = "NB")
+nb07 <- unmarked::pcount(~camdays ~ Pu239, data = UMFcher, K = 858, mixture = "NB")
+nb08 <- unmarked::pcount(~camdays ~ Pu240, data = UMFcher, K = 858, mixture = "NB")
+nb09 <- unmarked::pcount(~camdays ~ NDVI, data = UMFcher, K = 858, mixture = "NB")
+nb010 <- unmarked::pcount(~camdays ~ Distance_to_Road, data = UMFcher, K = 858, mixture = "NB")
+nb011 <- unmarked::pcount(~camdays ~ Distance_closest_water, data = UMFcher, K = 858, mixture = "NB")
+nb012 <- unmarked::pcount(~camdays ~ Distance_power_plant, data = UMFcher, K = 858, mixture = "NB")
+
+zip01 <- unmarked::pcount(~camdays ~ Lat., data = UMFcher, K = 858, mixture = "ZIP")
+zip02 <- unmarked::pcount(~camdays ~ Long., data = UMFcher, K = 858, mixture = "ZIP")
+zip03 <- unmarked::pcount(~camdays ~ Sr90, data = UMFcher, K = 858, mixture = "ZIP")
+zip04 <- unmarked::pcount(~camdays ~ Cs137, data = UMFcher, K = 858, mixture = "ZIP")
+zip05 <- unmarked::pcount(~camdays ~ Am241, data = UMFcher, K = 858, mixture = "ZIP")
+zip06 <- unmarked::pcount(~camdays ~ Pu238, data = UMFcher, K = 858, mixture = "ZIP")
+zip07 <- unmarked::pcount(~camdays ~ Pu239, data = UMFcher, K = 858, mixture = "ZIP")
+zip08 <- unmarked::pcount(~camdays ~ Pu240, data = UMFcher, K = 858, mixture = "ZIP")
+zip09 <- unmarked::pcount(~camdays ~ NDVI, data = UMFcher, K = 858, mixture = "ZIP")
+zip010 <- unmarked::pcount(~camdays ~ Distance_to_Road, data = UMFcher, K = 858, mixture = "ZIP")
+zip011 <- unmarked::pcount(~camdays ~ Distance_closest_water, data = UMFcher, K = 858, mixture = "ZIP")
+zip012 <- unmarked::pcount(~camdays ~ Distance_power_plant, data = UMFcher, K = 858, mixture = "ZIP")
+
+#Testing model fit and returning AIC values
+fitest1 <- unmarked::fitList(nb01, nb02, nb03, nb04, nb05, nb06, nb07, nb08, nb09, nb010, nb011, nb012, zip01, zip02, zip03, zip04, zip05, zip06, zip07, zip08, zip09, zip010, zip011, zip012)
+testset1 <- unmarked::modSel(fitest1) 
+AICtestset1 <- data.frame(testset1@Full[["model"]],testset1@Full[["AIC"]])
+#negative binomial models for each covariate return the lowest AIC, so all future models will be made with the negative binomial mixture
+testset1
+#so far, model nb02 has the lowest overall AIC - 4268.44
+```
+
+
+Corrected AIC values:
+```{r}
+MuMIn::AICc(nb01, nb02, nb03, nb04, nb05, nb06, nb07, nb08, nb09, nb010, nb011, nb012)
+
+newlist <- list(null, nb01, nb02, nb03, nb04, nb05, nb06, nb07, nb08, nb09, nb010, nb011, nb012)
+AICcmodavg::aictab(newlist)
+```
+
+Model Set 2: Additive Models
+All combinations of Long. with other covariates
+```{r}
+
+fm.1 <- unmarked::pcount(~camdays ~ Lat. + Long., data = UMFcher, K = 858, mixture = "NB")
+fm.2 <- unmarked::pcount(~camdays ~ Long. + Sr90, data = UMFcher, K = 858, mixture = "NB")
+fm.3 <- unmarked::pcount(~camdays ~ Long. + Am241, data = UMFcher, K = 858, mixture = "NB")
+fm.4 <- unmarked::pcount(~camdays ~ Long. + Pu238, data = UMFcher, K = 858, mixture = "NB")
+fm.5 <- unmarked::pcount(~camdays ~ Long. + Pu239, data = UMFcher, K = 858, mixture = "NB")
+fm.6 <- unmarked::pcount(~camdays ~ Long. + Pu240, data = UMFcher, K = 858, mixture = "NB")
+fm.7 <- unmarked::pcount(~camdays ~ Long. + NDVI, data = UMFcher, K = 858, mixture = "NB")
+fm.8 <- unmarked::pcount(~camdays ~ Long. + NDVI, data = UMFcher, K = 858, mixture = "NB")
+fm.9 <- unmarked::pcount(~camdays ~ Long. + Distance_to_Road, data = UMFcher, K = 858, mixture = "NB")
+fm.10 <- unmarked::pcount(~camdays ~ Long. + Distance_closest_water, data = UMFcher, K = 858, mixture = "NB")
+fm.11 <- unmarked::pcount(~camdays ~ Long. + Distance_power_plant, data = UMFcher, K = 858, mixture = "NB")
+
+fl <- unmarked::fitList(fm.1, fm.2, fm.3, fm.4, fm.5, fm.6, fm.7, fm.8, fm.9, fm.10, fm.11)
+AICtestset2 <- unmarked::modSel(fl)
+AICtestset2
+```
+
+Corrected AICc values
+```{r}
+AICcs <- MuMIn::AICc(fm.1, fm.2, fm.3, fm.4, fm.5, fm.6, fm.7, fm.8, fm.9, fm.10, fm.11)
+AICcs
+#model fm.1 has the lowest corrected AIC from round 2 (4270.185) but it is not lower than that of nb.02 from the first round
+
+newlist2 <- list(null, nb02, fm.1, fm.2, fm.3, fm.4, fm.5, fm.6, fm.7, fm.8, fm.9, fm.10, fm.11)
+AICcmodavg::aictab(newlist2, modnames = c("null", "nb02", "fm.1", "fm.2", "fm.3", "fm.4", "fm.5", "fm.6", "fm.7", "fm.8", "fm.9", "fm.10", "fm.11"))
+
+vif(mod = fm.1, type = "state")
+vif(mod = fm.4, type = "state")
+vif(mod = fm.3, type = "state")
+```
+
+Just trying 3
+```{r}
+threecovs <- unmarked::pcount(~camdays ~ Lat. + Long. + Pu238, data = UMFcher, K = 858, mixture = "NB")
+#AICc is higher than others
+vif(mod = threecovs, type = "state")
+```
+
+
+RAI Barplot per Year
+```{r}
+CherRAIs <- read_excel("Sophia Thesis- Cher ALL.xlsx", sheet = "RAI per year")
+M2016 <- mean(na.omit(CherRAIs$RAI2016))
+M2017 <- mean(na.omit(CherRAIs$RAI2017))
+M2018 <- mean(na.omit(CherRAIs$RAI2018))
+M2019 <- mean(na.omit(CherRAIs$RAI2019))
+M2020 <- mean(na.omit(CherRAIs$RAI2020))
+M2021 <- mean(na.omit(CherRAIs$RAI2021))
+M2022 <- mean(na.omit(CherRAIs$RAI2022))
+M2023 <- mean(na.omit(CherRAIs$RAI2023))
+
+V2016 <- var(na.omit(CherRAIs$RAI2016))
+V2017 <- var(na.omit(CherRAIs$RAI2017))
+V2018 <- var(na.omit(CherRAIs$RAI2018))
+V2019 <- var(na.omit(CherRAIs$RAI2019))
+V2020 <- 0
+V2021 <- var(na.omit(CherRAIs$RAI2021))
+V2022 <- var(na.omit(CherRAIs$RAI2022))
+V2023 <- var(na.omit(CherRAIs$RAI2023))
+
+newframe <- data.frame(Year=c('2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'), value=c(M2016, M2017, M2018, M2019, M2020, M2021, M2022, M2023), varr=c(V2016, V2017, V2018, V2019, V2020, V2021, V2022, V2023))
+
+ggplot(data = newframe, aes(x=Year, y=value)) + geom_bar(stat = "identity", fill =  c("#2A788EFF", "#75D054FF", "#FDE725FF", "#481567FF", "lightseagreen", "darkseagreen2", "darkgoldenrod2", "darkorchid2")) + ylab("Mean RAI Value") + ylim(-0.025,0.35) + geom_errorbar(aes(x=Year, ymin=value-varr, ymax=value+varr), width = 0.2, color = "black", alpha = 0.9) + theme_bw(base_size = 15)
+
+```
+
+Boxplot instead?
+```{r}
+boxframe16 <- data.frame(RAI = na.omit(CherRAIs$RAI2016), Year = rep(2016, 46))
+boxframe17 <- data.frame(RAI = na.omit(CherRAIs$RAI2017), Year = rep(2017, 42))
+boxframe18 <- data.frame(RAI = na.omit(CherRAIs$RAI2018), Year = rep(2018, 52))
+boxframe19 <- data.frame(RAI = na.omit(CherRAIs$RAI2019), Year = rep(2019, 64))
+boxframe20 <- data.frame(RAI = na.omit(CherRAIs$RAI2020), Year = rep(2020, 1))
+boxframe21 <- data.frame(RAI = na.omit(CherRAIs$RAI2021), Year = rep(2021, 19))
+boxframe22 <- data.frame(RAI = na.omit(CherRAIs$RAI2022), Year = rep(2022, 28))
+boxframe23 <- data.frame(RAI = na.omit(CherRAIs$RAI2023), Year = rep(2023, 23))
+
+boxframe <- rbind(boxframe16, boxframe17, boxframe18, boxframe19, boxframe20, boxframe21, boxframe22, boxframe23)
+
+boxframe$Year <- as.factor(boxframe$Year)
+
+ggplot(data = boxframe, aes(x=Year, y=RAI)) + geom_boxplot(fill = c("#2A788EFF", "#75D054FF", "#FDE725FF", "#481567FF", "lightseagreen", "darkseagreen2", "darkgoldenrod2", "darkorchid2")) + coord_flip(ylim=c(0,1.5)) + theme_bw(base_size=15)
+```
+
+Plotting Model Predicted Values:
+```{r}
+nb02preds <- predict(nb02, type = "state")
+#model gives counts, not RAI
+
+totalCount <- read_excel("Sophia Thesis- Cher ALL.xlsx", sheet = "Counts")
+
+predsANDcounts <- cbind(nb02preds, totalCount)
+
+
+plot(nb02preds$Predicted ~ predsANDcounts$Long., ylab="Raw Abundance", xlab="Longitude (°E)", ylim=c(0,400), pch=17)
+points(x = predsANDcounts$Long., y = predsANDcounts$Total_obs, col = "forestgreen", pch=17)
+legend(x = 29.5, y = 350, legend = c("Model-Predicted Values", "Recorded Counts"), col = c("black", "forestgreen"), pch = 17)
+
+##OR, convert model predicted values to RAI
+predsANDcounts$modelRAI <- predsANDcounts$Predicted/predsANDcounts$total_days
+
+plot(predsANDcounts$modelRAI ~ predsANDcounts$Long., ylab="RAI", xlab="Longitude (°E)", ylim = c(0,6), pch=17)
+points(x = predsANDcounts$Long., y = predsANDcounts$RAI, col = "forestgreen", pch=17)
+legend(x = 29.5, y = 5, legend = c("Model-Predicted RAI", "Observed RAI"), col = c("black", "forestgreen"), pch = 17)
+```
+
+```{r}
+#Log(x+1) transforming RAI
+boxframe16$transform <- log(boxframe16$RAI + 1)
+boxframe17$transform <- log(boxframe17$RAI + 1)
+boxframe18$transform <- log(boxframe18$RAI + 1)
+boxframe19$transform <- log(boxframe19$RAI + 1)
+boxframe20$transform <- log(boxframe20$RAI + 1)
+boxframe21$transform <- log(boxframe21$RAI + 1)
+boxframe22$transform <- log(boxframe22$RAI + 1)
+boxframe23$transform <- log(boxframe23$RAI + 1)
+
+boxframe <- rbind(boxframe16, boxframe17, boxframe18, boxframe19, boxframe20, boxframe21, boxframe22, boxframe23)
+boxframe$Year <- as.factor(boxframe$Year)
+
+ggplot(data = boxframe, mapping = aes(x=Year, y=transform)) + geom_boxplot(fill = c("#2A788EFF", "#75D054FF", "#FDE725FF", "#481567FF", "lightseagreen", "darkseagreen2", "darkgoldenrod2", "darkorchid2")) + labs(y = "Log(RAI + 1)", title = "Chernobyl") + theme_bw(base_size = 15) + ylim(0,0.5)
+
+```

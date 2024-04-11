@@ -1,0 +1,311 @@
+---
+title: "BoarScript-FUKU"
+output:
+  html_document: default
+  pdf_document: default
+date: "2024-01-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Library Calls
+```{r}
+library(devtools)
+library(readxl)
+library(unmarked)
+library(lme4)
+library(arm)
+library(MuMIn)
+library(AICcmodavg)
+library(ggplot2)
+```
+
+Loading and Formatting Data
+```{r}
+FukuBoar <- readxl::read_excel("/Users/sophiavrh/Desktop/complete data w approximations.xlsx", sheet = "Sheet1")
+FukuBoar$EZ <- as.factor(FukuBoar$EZ)
+y1 <- as.matrix(FukuBoar[,2:5])
+obscov1 <- list("camdays"=FukuBoar[,6:9])
+sitecov1 <- as.data.frame(FukuBoar[,10:21])
+
+#create unmarked frame
+UMFfuku <- unmarked::unmarkedFramePCount(y=y1, siteCovs = sitecov1, obsCovs = obscov1)
+summary(UMFfuku)
+hist(na.omit(UMFfuku@y),breaks=831,xlab="Number of Wild Boar", main="Distribution of Wild Boar sightings per Camera Year")
+
+```
+
+Null Model Generation:
+```{r}
+null1 <- unmarked::pcount(formula = ~camdays ~ 1, data = UMFfuku, K = 831, mixture = "NB")
+MuMIn::AICc(null1)
+#12350.28
+```
+
+Collinearity?:
+```{r}
+cor(FukuBoar$Radiation, FukuBoar$Lat)
+cor(FukuBoar$Radiation, FukuBoar$Long) #0.685
+cor(FukuBoar$Radiation, FukuBoar$Elevation)
+cor(FukuBoar$Radiation, FukuBoar$Distance_Edge)
+cor(FukuBoar$Radiation, FukuBoar$Distance_to_Highway)
+cor(FukuBoar$Radiation, FukuBoar$Distance_Water)
+cor(FukuBoar$Radiation, FukuBoar$NDVI)
+cor(FukuBoar$Radiation, FukuBoar$Veg_Midstory)
+cor(FukuBoar$Radiation, FukuBoar$Veg_Ground)
+cor(FukuBoar$Radiation, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$Elevation, FukuBoar$Lat)
+cor(FukuBoar$Elevation, FukuBoar$Long) #-0.6875
+cor(FukuBoar$Elevation, FukuBoar$Distance_Edge)
+cor(FukuBoar$Elevation, FukuBoar$Distance_to_Highway)
+cor(FukuBoar$Elevation, FukuBoar$Distance_Water) #0.5726
+cor(FukuBoar$Elevation, FukuBoar$NDVI)
+cor(FukuBoar$Elevation, FukuBoar$Veg_Midstory)
+cor(FukuBoar$Elevation, FukuBoar$Veg_Ground)
+cor(FukuBoar$Elevation, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$Distance_Edge, FukuBoar$Lat)
+cor(FukuBoar$Distance_Edge, FukuBoar$Long) 
+cor(FukuBoar$Distance_Edge, FukuBoar$Distance_to_Highway)
+cor(FukuBoar$Distance_Edge, FukuBoar$Distance_Water) 
+cor(FukuBoar$Distance_Edge, FukuBoar$NDVI)
+cor(FukuBoar$Distance_Edge, FukuBoar$Veg_Midstory)
+cor(FukuBoar$Distance_Edge, FukuBoar$Veg_Ground)
+cor(FukuBoar$Distance_Edge, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$Distance_to_Highway, FukuBoar$Lat)
+cor(FukuBoar$Distance_to_Highway, FukuBoar$Long) 
+cor(FukuBoar$Distance_to_Highway, FukuBoar$Distance_Water) 
+cor(FukuBoar$Distance_to_Highway, FukuBoar$NDVI)
+cor(FukuBoar$Distance_to_Highway, FukuBoar$Veg_Midstory)
+cor(FukuBoar$Distance_to_Highway, FukuBoar$Veg_Ground)
+cor(FukuBoar$Distance_to_Highway, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$Distance_Water, FukuBoar$Lat)
+cor(FukuBoar$Distance_Water, FukuBoar$Long) 
+cor(FukuBoar$Distance_Water, FukuBoar$NDVI)
+cor(FukuBoar$Distance_Water, FukuBoar$Veg_Midstory)
+cor(FukuBoar$Distance_Water, FukuBoar$Veg_Ground)
+cor(FukuBoar$Distance_Water, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$NDVI, FukuBoar$Lat)
+cor(FukuBoar$NDVI, FukuBoar$Long) 
+cor(FukuBoar$NDVI, FukuBoar$Veg_Midstory)
+cor(FukuBoar$NDVI, FukuBoar$Veg_Ground)
+cor(FukuBoar$NDVI, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$Veg_Midstory, FukuBoar$Lat)
+cor(FukuBoar$Veg_Midstory, FukuBoar$Long) 
+cor(FukuBoar$Veg_Midstory, FukuBoar$Veg_Ground) #0.65325
+cor(FukuBoar$Veg_Midstory, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$Veg_Ground, FukuBoar$Lat)
+cor(FukuBoar$Veg_Ground, FukuBoar$Long) 
+cor(FukuBoar$Veg_Ground, FukuBoar$Canopy_Cover)
+
+cor(FukuBoar$Canopy_Cover, FukuBoar$Lat)
+cor(FukuBoar$Veg_Ground, FukuBoar$Long) 
+
+FukuBoarcovs <- FukuBoar[, 10:21]
+V <- cor(FukuBoarcovs)
+library(corrplot)
+corrplot(V, method = "number")
+
+#longitude-elevation, longitude-radiation, vegmid-vegground
+cor.test(FukuBoarcovs$Elevation, FukuBoarcovs$Long)
+cor.test(FukuBoarcovs$Radiation, FukuBoarcovs$Long)
+cor.test(FukuBoarcovs$Veg_Midstory, FukuBoarcovs$Veg_Ground)
+```
+
+
+Single Covariate Models:
+Will be testing a zero-inflated poisson (zip) and negative binomial (nb) distribution
+```{r}
+nb01 <- unmarked::pcount(~camdays ~ Lat, data = UMFfuku, K = 831, mixture = "NB")
+nb02 <- unmarked::pcount(~camdays ~ Long, data = UMFfuku, K = 831, mixture = "NB")
+nb03 <- unmarked::pcount(~camdays ~ Elevation, data = UMFfuku, K = 831, mixture = "NB")
+nb04 <- unmarked::pcount(~camdays ~ Radiation, data = UMFfuku, K = 831, mixture = "NB")
+nb05 <- unmarked::pcount(~camdays ~ EZ, data = UMFfuku, K = 831, mixture = "NB")
+nb06 <- unmarked::pcount(~camdays ~ Distance_Edge, data = UMFfuku, K = 831, mixture = "NB")
+nb07 <- unmarked::pcount(~camdays ~ Distance_to_Highway, data = UMFfuku, K = 831, mixture = "NB")
+nb08 <- unmarked::pcount(~camdays ~ Distance_Water, data = UMFfuku, K = 831, mixture = "NB")
+nb09 <- unmarked::pcount(~camdays ~ NDVI, data = UMFfuku, K = 831, mixture = "NB")
+nb010 <- unmarked::pcount(~camdays ~ Veg_Midstory, data = UMFfuku, K = 831, mixture = "NB")
+nb011 <- unmarked::pcount(~camdays ~ Veg_Ground, data = UMFfuku, K = 831, mixture = "NB")
+nb012 <- unmarked::pcount(~camdays ~ Canopy_Cover, data = UMFfuku, K = 831, mixture = "NB")
+zip01 <- unmarked::pcount(~camdays ~ Lat, data = UMFfuku, K = 831, mixture = "ZIP")
+zip02 <- unmarked::pcount(~camdays ~ Long, data = UMFfuku, K = 831, mixture = "ZIP")
+zip03 <- unmarked::pcount(~camdays ~ Elevation, data = UMFfuku, K = 831, mixture = "ZIP")
+zip04 <- unmarked::pcount(~camdays ~ Radiation, data = UMFfuku, K = 831, mixture = "ZIP")
+zip05 <- unmarked::pcount(~camdays ~ EZ, data = UMFfuku, K = 831, mixture = "ZIP")
+zip06 <- unmarked::pcount(~camdays ~ Distance_Edge, data = UMFfuku, K = 831, mixture = "ZIP")
+zip07 <- unmarked::pcount(~camdays ~ Distance_to_Highway, data = UMFfuku, K = 831, mixture = "ZIP")
+zip08 <- unmarked::pcount(~camdays ~ Distance_Water, data = UMFfuku, K = 831, mixture = "ZIP")
+zip09 <- unmarked::pcount(~camdays ~ NDVI, data = UMFfuku, K = 831, mixture = "ZIP")
+zip010 <- unmarked::pcount(~camdays ~ Veg_Midstory, data = UMFfuku, K = 831, mixture = "ZIP")
+zip011 <- unmarked::pcount(~camdays ~ Veg_Ground, data = UMFfuku, K = 831, mixture = "ZIP")
+zip012 <- unmarked::pcount(~camdays ~ Canopy_Cover, data = UMFfuku, K = 831, mixture = "ZIP")
+
+#Testing model fit and returning AIC values
+fitest1 <- unmarked::fitList(nb01, nb02, nb03, nb04, nb05, nb06, nb07, nb08, nb09, nb010, nb011, nb012, zip01, zip02, zip03, zip04, zip05, zip06, zip07, zip08, zip09, zip010, zip011, zip012)
+testset1 <- unmarked::modSel(fitest1) 
+AICtestset1 <- data.frame(testset1@Full[["model"]],testset1@Full[["AIC"]])
+#negative binomial models for each covariate return the lowest AIC, so all future models will be made with the negative binomial mixture
+testset1
+```
+
+Corrected AIC values:
+```{r}
+MuMIn::AICc(nb01, nb02, nb03, nb04, nb05, nb06, nb07, nb08, nb09, nb010, nb011, nb012)
+#nb05 has the lowest AIC and AICc (12341.15)
+
+newlist <- list(null1, nb01, nb02, nb03, nb04, nb05, nb06, nb07, nb08, nb09, nb010, nb011, nb012)
+AICcmodavg::aictab(newlist, modnames = c("null1", "nb01", "nb02", "nb03", "nb04", "nb05", "nb06", "nb07", "nb08", "nb09", "nb010", "nb011", "nb012"))
+```
+
+
+Model Set #2: 
+Additive models, all possible combinations EZ and another covariate
+```{r}
+fm.11 <- unmarked::pcount(~camdays ~ Lat + EZ, data = UMFfuku, K = 831, mixture = "NB")
+fm.12 <- unmarked::pcount(~camdays ~ Long + EZ, data = UMFfuku, K = 831, mixture = "NB")
+fm.13 <- unmarked::pcount(~camdays ~ Elevation + EZ, data = UMFfuku, K = 831, mixture = "NB")
+fm.14 <- unmarked::pcount(~camdays ~ Radiation + EZ, data = UMFfuku, K = 831, mixture = "NB")
+fm.15 <- unmarked::pcount(~camdays ~ EZ + Distance_Edge, data = UMFfuku, K = 831, mixture = "NB")
+fm.16 <- unmarked::pcount(~camdays ~ EZ + Distance_to_Highway, data = UMFfuku, K = 831, mixture = "NB")
+fm.17 <- unmarked::pcount(~camdays ~ EZ + Distance_Water, data = UMFfuku, K = 831, mixture = "NB")
+fm.18 <- unmarked::pcount(~camdays ~ EZ + NDVI, data = UMFfuku, K = 831, mixture = "NB")
+fm.19 <- unmarked::pcount(~camdays ~ EZ + Veg_Midstory, data = UMFfuku, K = 831, mixture = "NB")
+fm.110 <- unmarked::pcount(~camdays ~ EZ + Veg_Ground, data = UMFfuku, K = 831, mixture = "NB")
+fm.111 <- unmarked::pcount(~camdays ~ EZ + Canopy_Cover, data = UMFfuku, K = 831, mixture = "NB")
+```
+
+Corrected AIC:
+```{r}
+newlist3 <- list(null1, nb05, nb011, nb09, nb04, fm.11, fm.12, fm.13, fm.14, fm.15, fm.16, fm.17, fm.18, fm.19, fm.110, fm.111)
+
+AICcmodavg::aictab(newlist3, modnames = c("null1", "nb05", "nb011", "nb09", "nb04", "fm.11", "fm.12", "fm.13", "fm.14", "fm.15", "fm.16", "fm.17", "fm.18", "fm.19", "fm.110", "fm.111"))
+```
+
+Models for Cameras INSIDE the Exclusion Zone Only:
+```{r}
+FukuBoar2 <- FukuBoar[FukuBoar$EZ==1, ]
+y2 <- as.matrix(FukuBoar2[,2:5])
+obscov2 <- list("camdays"=FukuBoar2[,6:9])
+sitecov2 <- as.data.frame(FukuBoar2[,10:21])
+
+#create unmarked frame
+UMFfuku2 <- unmarked::unmarkedFramePCount(y=y2, siteCovs = sitecov2, obsCovs = obscov2)
+summary(UMFfuku2)
+
+#single variable models
+nb2.1 <- unmarked::pcount(~camdays ~ Lat, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.2 <- unmarked::pcount(~camdays ~ Long, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.3 <- unmarked::pcount(~camdays ~ Elevation, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.4 <- unmarked::pcount(~camdays ~ Radiation, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.5 <- unmarked::pcount(~camdays ~ Distance_Edge, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.6 <- unmarked::pcount(~camdays ~ Distance_to_Highway, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.7 <- unmarked::pcount(~camdays ~ Distance_Water, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.8 <- unmarked::pcount(~camdays ~ NDVI, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.9 <- unmarked::pcount(~camdays ~ Veg_Midstory, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.10 <- unmarked::pcount(~camdays ~ Veg_Ground, data = UMFfuku2, K = 831, mixture = "NB")
+nb2.11 <- unmarked::pcount(~camdays ~ Canopy_Cover, data = UMFfuku2, K = 831, mixture = "NB")
+
+#Testing model fit and returning AIC values
+fitest2.1 <- unmarked::fitList(nb2.1, nb2.2, nb2.3, nb2.4, nb2.5, nb2.6, nb2.7, nb2.8, nb2.9, nb2.10, nb2.11)
+testset2.1 <- unmarked::modSel(fitest2.1) 
+testset2.1
+```
+
+```{r}
+AICc2.1 <- MuMIn::AICc(nb2.1, nb2.2, nb2.3, nb2.4, nb2.5, nb2.6, nb2.7, nb2.8, nb2.9, nb2.10, nb2.11)
+#nb2.3 has the lowest AIC (10843.08) and AICc (10844.19)
+
+null2 <- unmarked::pcount(formula = ~camdays ~ 1, data = UMFfuku2, K = 831, mixture = "NB")
+  
+newlist4 <- list(null2, nb2.1, nb2.2, nb2.3, nb2.4, nb2.5, nb2.6, nb2.7, nb2.8, nb2.9, nb2.10, nb2.11)
+AICcmodavg::aictab(newlist4, modnames = c("null2", "nb2.1", "nb2.2", "nb2.3", "nb2.4", "nb2.5", "nb2.6", "nb2.7", "nb2.8", "nb2.9", "nb2.10", "nb2.11"))
+
+```
+
+Model Set 2, using Elevation for additive models
+```{r}
+fm2.1 <- unmarked::pcount(~camdays ~ Elevation + Lat, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.2 <- unmarked::pcount(~camdays ~ Elevation + Long, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.3 <- unmarked::pcount(~camdays ~ Elevation + Radiation, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.4 <- unmarked::pcount(~camdays ~ Elevation + Distance_Edge, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.5 <- unmarked::pcount(~camdays ~ Elevation + Distance_to_Highway, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.6 <- unmarked::pcount(~camdays ~ Elevation + Distance_Water, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.7 <- unmarked::pcount(~camdays ~ Elevation + NDVI, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.8 <- unmarked::pcount(~camdays ~ Elevation + Veg_Midstory, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.9 <- unmarked::pcount(~camdays ~ Elevation + Veg_Ground, data = UMFfuku2, K = 831, mixture = "NB")
+fm2.10 <- unmarked::pcount(~camdays ~ Elevation + Canopy_Cover, data = UMFfuku2, K = 831, mixture = "NB")
+
+#Testing model fit and returning AIC values
+fitest2.2 <- unmarked::fitList(fm2.1, fm2.2, fm2.3, fm2.4, fm2.5, fm2.6, fm2.7, fm2.8, fm2.9, fm2.10)
+testset2.2 <- unmarked::modSel(fitest2.2) 
+testset2.2
+```
+
+```{r}
+AICc2.2 <- MuMIn::AICc(fm2.1, fm2.2, fm2.3, fm2.4, fm2.5, fm2.6, fm2.7, fm2.8, fm2.9, fm2.10)
+#fm2.7 has the lowest AIC (11127.81) and AICc (11129.97) but the original 1 variable model for elevation has a lower value for both
+AICc2.2
+
+newlist4 <- list(null2, nb2.3, fm2.1, fm2.2, fm2.3, fm2.4, fm2.5, fm2.6, fm2.7, fm2.8, fm2.9, fm2.10)
+AICcmodavg::aictab(newlist4, modnames = c("null2", "nb2.3", "fm2.1", "fm2.2", "fm2.3", "fm2.4", "fm2.5", "fm2.6", "fm2.7", "fm2.8", "fm2.9", "fm2.10"))
+```
+
+
+RAI Barplot per Year
+```{r}
+FukuRAIs <- read_excel("complete data w approximations.xlsx", sheet = "RAI per year")
+M2015 <- mean(na.omit(FukuRAIs$`2015`))
+M2016 <- mean(na.omit(FukuRAIs$`2016`))
+M2017 <- mean(na.omit(FukuRAIs$`2017`))
+M2018 <- mean(na.omit(FukuRAIs$`2018`))
+
+newframe <- data.frame(Year=c('2015', '2016', '2017', '2018'), value=c(M2015, M2016, M2017, M2018))
+
+V2015 <- var(na.omit(FukuRAIs$`2015`))
+V2016 <- var(na.omit(FukuRAIs$`2016`))
+V2017 <- var(na.omit(FukuRAIs$`2017`))
+V2018 <- var(na.omit(FukuRAIs$`2018`))
+
+newframe2 <- data.frame(Year=c('2015', '2016', '2017', '2018'),  value=c(M2015, M2016, M2017, M2018), varr=c(V2015, V2016, V2017, V2018))
+
+ggplot(data = newframe2, aes(x=Year, y=value)) + geom_bar(stat = "identity", fill =  c("#481567FF", "#2A788EFF", "#75D054FF", "#FDE725FF")) + ylab("Mean RAI Value") + geom_errorbar(aes(x=Year, ymin=value-varr, ymax=value+varr), width = 0.2, color = "black", alpha = 0.9) + theme_bw(base_size = 15)
+
+```
+
+Boxplot instead?
+```{r}
+boxframe15 <- data.frame(RAI = na.omit(FukuRAIs$`2015`), Year = rep(2015, 42))
+boxframe16 <- data.frame(RAI = na.omit(FukuRAIs$`2016`), Year = rep(2016, 52))
+boxframe17 <- data.frame(RAI = na.omit(FukuRAIs$`2017`), Year = rep(2017, 57))
+boxframe18 <- data.frame(RAI = na.omit(FukuRAIs$`2018`), Year = rep(2018, 54))
+
+
+boxframe <- rbind(boxframe15, boxframe16, boxframe17, boxframe18)
+
+boxframe$Year <- as.factor(boxframe$Year)
+
+ggplot(data = boxframe, aes(x=Year, y=RAI)) + geom_boxplot(fill = c("#481567FF", "#2A788EFF", "#75D054FF", "#FDE725FF")) + coord_flip(ylim=c(0,4)) + theme_bw(base_size = 15)
+```
+
+```{r}
+#Log(x+1) transforming RAI
+boxframe15$transform <- log(boxframe15$RAI + 1)
+boxframe16$transform <- log(boxframe16$RAI + 1)
+boxframe17$transform <- log(boxframe17$RAI + 1)
+boxframe18$transform <- log(boxframe18$RAI + 1)
+
+boxframe <- rbind(boxframe15, boxframe16, boxframe17, boxframe18)
+boxframe$Year <- as.factor(boxframe$Year)
+
+ggplot(data = boxframe, mapping = aes(x=Year, y=transform)) + geom_boxplot(fill = c("#481567FF", "#2A788EFF", "#75D054FF", "#FDE725FF")) + labs(y = "Log(RAI + 1)", title = "Fukushima") + theme_bw(base_size = 15)
+
+```
